@@ -1,0 +1,48 @@
+Ubuntu上安装nasm以及nasm在Ubuntu上的简单使用
+
+1、在Ubuntu上安装nasm方法
+
+首先在网站http://www.nasm.us/pub/nasm/releasebuilds/2.10.07/下面去下载2.10.07.tar.gz这个版本（一般在ubuntu上面都是使用这个压缩形式的）。如果要下其他版本的nasm可以通过http://www.nasm.us/来进行选择进行下载。
+
+2、安装方法：使用如下的命令：
+
+解压：tar zxvf nasm-2.10.07.tar.gz
+
+进入刚解压的目录
+
+然后执行命令：./configure
+
+make
+
+sudo make install
+
+通过以上的步骤nasm就在ubuntu上安装好了。也可以通过使用命令：nasm -version来查看是否安装成功。如果出现了nasm的版本信息则说明安装成功，否则还需进一步安装。
+
+3、在ubuntu用nasm来进行汇编的步骤：
+
+hello.asm 源代码如下：
+
+*************************************************************
+section .text
+global main
+main:
+mov eax,4 ;　　 4号调用
+mov ebx,1 ;　　 ebx送1表示输出
+mov ecx,msge ;　字符串的首地址送入ecx
+mov edx,14 ;　　字符串的长度送入edx
+int 80h ;　　　 输出字串
+mov eax,1 ;　　 1号调用
+int 80h ;　　　 结束　
+msge:
+db "Hello world!",0ah,0dh
+*************************************************************
+
+把上面的代码保存为hello.asm，并且把该文件放在解压后的nasm的目录中，并进入目录执行如下命令：
+
+nasm -f elf64(elf32) hello.asm                  (注意这里使用elf64还是elf32要看操作系统的位数来决定)
+
+gcc -o hello hello.o
+
+./hello
+
+如果输出了hello wrod 则说明安装成功了。

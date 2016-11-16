@@ -1,0 +1,135 @@
+   为了学习的顺利进行，今天尝试复习 C 语言和汇编语言的联合编译。代码很简单：
+
+/* main.c */
+
+#include <stdio.h>
+
+extern int Caculate(int nX, int nY);
+
+
+char strFormat[] = " %d + %d = %d\n";
+
+int MyAdd(int nX, int nY);
+
+
+int main()
+{
+	int nX = 3, nY = 2, nResult = 0;
+
+	nResult = Caculate(nX, nY);
+	printf(strFormat, nX, nY, nResult);
+
+	return 0;
+}
+
+int MyAdd(int nX, int nY)
+{
+	return nX + nY;
+}
+
+; proc.nas
+
+extern strFormat
+
+extern MyAdd           ; int MyAdd(int nX, int nY);
+extern printf
+
+
+global Caculate        ; int Caculate(int nX, int nY);
+
+
+[SECTION .data]
+	nResult dw 0
+
+[SECTION .text]
+Caculate:
+	push ebp            ; 保存父函数的栈基址
+	mov ebp, esp        ; 设置本函数的栈基址，即父函数的栈顶
+	sub esp, 0F0h       ; 给子函数开辟栈空间
+
+	; 取入口参数
+	mov ebx, [ebp + 12] ; 取参数2
+	mov eax, [ebp + 8]  ; 取参数1
+
+	push ebx            ; 参数入栈
+	push eax
+	call MyAdd          ; 函数的返回值保存在 eax 寄存器中
+	mov [nResult], eax  ; 保存 _MyAdd 的返回值
+	add esp, 2 * 4      ; 两个参数出栈
+
+	push eax
+	mov ebx, [ebp + 12]
+	mov eax, [ebp + 8]
+	push ebx
+	push eax
+	push strFormat
+	call printf
+	add esp, 4 * 4
+
+	mov eax, [nResult]  ; 设置本函数的返回值
+	leave               ; 相当于下面两条指令的效果
+;   mov esp, ebp        ; 恢复父函数的栈顶指针（= 本函数的栈基址）
+;   pop ebp             ; 恢复父函数的栈基址
+	ret
+
+#MakeFile
+
+ALL:
+    nasm -felf32 proc.nas
+    gcc -m32 -o main main.c proc.o
+
+    依然采用 GCC + NASM，可以通过编译，可是链接成执行文件怎么都通不过，一直报错“未定义函数”！
+
+    尝试各种操作系统（WinXP 32位、Win7 64位）、各种编译器版本（MinGW 32 位、64 位）、各种编译参数，搞了大半天，死活不让我过！
+
+    就在快绝望的时候，突然想起以前浏览的 C 语言库函数，依稀记得函数名前面都带有个下划线 “_”！是不是就是这个原因呢？试试，只需修改汇编代码，涉及联合编译的变量和函数都加个下划线前缀“_”。。。。。。
+
+; proc.nas
+
+extern _strFormat
+
+extern _MyAdd           ; int MyAdd(int nX, int nY);
+extern _printf
+
+
+global _Caculate        ; int Caculate(int nX, int nY);
+
+
+[SECTION .data]
+	nResult dw 0
+
+[SECTION .text]
+_Caculate:
+	push ebp            ; 保存父函数的栈基址
+	mov ebp, esp        ; 设置本函数的栈基址，即父函数的栈顶
+	                    ; 如果本函数有栈入口参数，则[bp + (n - 1) * 4]是第 n 个参数
+	sub esp, 0F0h       ; 为本函数的局部变量和调用中断、子函数时保存现场数据的栈开辟空间
+
+	; 取入口参数
+	mov ebx, [ebp + 12] ; 取参数2
+	mov eax, [ebp + 8]  ; 取参数1
+
+	push ebx            ; 参数入栈
+	push eax
+	call _MyAdd         ; 函数的返回值保存在 eax 寄存器中
+	mov [nResult], eax  ; 保存 _MyAdd 的返回值
+	add esp, 2 * 4      ; 两个参数出栈
+
+	push eax
+	mov ebx, [ebp + 12]
+	mov eax, [ebp + 8]
+	push ebx
+	push eax
+	push _strFormat
+	call _printf
+	add esp, 4 * 4
+
+	mov eax, [nResult]  ; 设置本函数的返回值
+	leave               ; 相当于下面两条指令的效果
+;   mov esp, ebp        ; 恢复父函数的栈顶指针（= 本函数的栈基址）
+;   pop ebp             ; 恢复父函数的栈基址
+	ret
+
+    竟然真是的，编译通过了！
+
+    总结，汇编语言（NASM）和 C 语言（GCC）联合编译的时候（在 Windows 系统下），汇编代码中和 C 语言产生混编关系的变量和函数，前面都要加一个下划线“_”！C 语言代码中不加。
